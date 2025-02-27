@@ -1,0 +1,12 @@
+/mockDBF
+# Ignore Python cache files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+secure/**/*
+
+/logs/**/*
+
+/build
+/dist/**/* 
