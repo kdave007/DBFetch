@@ -12,7 +12,7 @@ class DBFController:
         """
         self.dbf_reader = None  # Explicitly show it starts as None
 
-    def set_dbf_file(self, file_path: str, max_records : int) -> bool:
+    def set_dbf_file(self, file_path: str, max_records : int = 1000) -> bool:
         """
         Set and validate the DBF file to work with
         

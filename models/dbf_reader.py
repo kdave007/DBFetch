@@ -1,5 +1,5 @@
 from dbfread import DBF
-from typing import Dict, Optional, List
+from typing import Dict, Optional, List, Tuple
 import os
 
 class DBFReader:
@@ -159,3 +159,73 @@ class DBFReader:
         except Exception as e:
             print(f"Error reading DBF file: {e}")
             return 0
+
+    def get_field_info(self) -> List[Dict[str, str]]:
+        """
+        Get information about the fields in the DBF file
+        
+        Returns:
+            List[Dict[str, str]]: List of dictionaries containing field information
+                Each dictionary contains:
+                - name: Field name
+                - type: Field type (C for Character, N for Numeric, etc.)
+                - length: Field length
+        """
+        try:
+            with DBF(self.file_path, encoding='latin1') as dbf:
+                field_info = []
+                
+                # Iterate through each field and collect its information
+                for field in dbf.fields:
+                    field_data = {
+                        'name': field.name,
+                        'type': field.type,
+                        'length': field.length,
+                        'decimal': field.decimal if hasattr(field, 'decimal') else 0
+                    }
+                    field_info.append(field_data)
+                    
+                return field_info
+
+        except Exception as e:
+            print(f"Error reading DBF fields: {e}")
+            return []
+
+    def get_records_with_fields(self, limit: Optional[int] = None) -> Tuple[List[Dict], List[Dict[str, str]]]:
+        """
+        Get records along with field information
+        
+        Args:
+            limit (int, optional): Number of records to retrieve
+            
+        Returns:
+            Tuple[List[Dict], List[Dict[str, str]]]: Tuple containing:
+                - List of record dictionaries
+                - List of field information dictionaries
+        """
+        try:
+            with DBF(self.file_path, encoding='latin1') as dbf:
+                # Get field information
+                field_info = []
+                for field in dbf.fields:
+                    field_data = {
+                        'name': field.name,
+                        'type': field.type,
+                        'length': field.length,
+                        'decimal': field.decimal if hasattr(field, 'decimal') else 0
+                    }
+                    field_info.append(field_data)
+                
+                # Get records with limit
+                records = list(dbf)
+                if limit is None:
+                    limit = self.max_records
+                limit = min(limit, len(records))
+                limit = min(limit, self.max_records)
+                records = records[:limit]
+                
+                return records, field_info
+
+        except Exception as e:
+            print(f"Error reading DBF file: {e}")
+            return [], []
