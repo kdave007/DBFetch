@@ -181,7 +181,7 @@ class DBFReader:
                         'name': field.name,
                         'type': field.type,
                         'length': field.length,
-                        'decimal': field.decimal if hasattr(field, 'decimal') else 0
+                        'decimal_count': field.decimal_count if hasattr(field, 'decimal_count') else 0
                     }
                     field_info.append(field_data)
                     
@@ -212,7 +212,7 @@ class DBFReader:
                         'name': field.name,
                         'type': field.type,
                         'length': field.length,
-                        'decimal': field.decimal if hasattr(field, 'decimal') else 0
+                        'decimal_count': field.decimal_count if hasattr(field, 'decimal_count') else 0
                     }
                     field_info.append(field_data)
                 

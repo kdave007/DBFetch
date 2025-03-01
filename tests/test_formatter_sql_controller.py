@@ -19,7 +19,7 @@ def test_sql_formatting():
         dbf_controller.set_dbf_file(test_file)
         
         # Get some records and fields
-        records = dbf_controller.get_records(limit=1)  # Get 5 records for testing
+        records = dbf_controller.get_last_records(limit=10)  # Get 5 records for testing
         fields = dbf_controller.dbf_reader.get_field_info()
         
         # 2. Format the data to SQL
@@ -33,7 +33,7 @@ def test_sql_formatting():
         
         # 3. Print results
         print(f"\nGenerated {len(sql_statements)} SQL statements:")
-        for i, statement in enumerate(sql_statements, 1):
+        for i, statement in enumerate(sql_statements, 100):
             print(f"\nStatement {i}:")
             print(statement)
             print("-" * 80)

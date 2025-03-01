@@ -93,7 +93,7 @@ class SQLFormatter:
                 formatted_value = self.format_value(
                     value, 
                     field['type'],
-                    field.get('decimal', 0)
+                    field.get('decimal_count', 0)
                 )
                 record_values.append(formatted_value)
             values_list.append(f"({','.join(record_values)})")
