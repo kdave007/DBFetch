@@ -19,7 +19,7 @@ def test_sql_formatting():
         dbf_controller.set_dbf_file(test_file)
         
         # Get some records and fields
-        records = dbf_controller.get_last_records(limit=10)  # Get 5 records for testing
+        records = dbf_controller.get_records(limit=20)  # Get 5 records for testing
         fields = dbf_controller.dbf_reader.get_field_info()
         
         # 2. Format the data to SQL
@@ -28,15 +28,17 @@ def test_sql_formatting():
             table_name="CANCFDI",
             fields=fields,
             records=records,
-            batch_size=100  # Small batch size for testing
+            batch_size=5  # Small batch size for testing
         )
+
+        format_controller.save_sql_file(sql_statements,'../',"CANCFDI")
         
         # 3. Print results
         print(f"\nGenerated {len(sql_statements)} SQL statements:")
-        for i, statement in enumerate(sql_statements, 100):
-            print(f"\nStatement {i}:")
+        for i, statement in enumerate(sql_statements, 1):
+            print(f"\n--- Statement {i} ---")
             print(statement)
-            print("-" * 80)
+            print("-------------------\n")
     else:
         print(f"\nSkipping tests: Test file not found at {test_file}")
 

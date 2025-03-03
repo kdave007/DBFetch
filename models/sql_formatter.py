@@ -68,16 +68,17 @@ class SQLFormatter:
             raise ValueError('Fields or records cannot be empty')
 
         # Process records in batches
-        # Process records in batches of size batch_size.
-        # This prevents creating too many parameters in a single INSERT statement,
-        # which may exceed the SQL server's maximum parameter count.
-        # For example, if you have 1000 records and a batch size of 100,
-        # 10 separate INSERT statements will be generated, each with 100 records.
         statements = []
-        for i in range(0, len(records), batch_size):
-            batch = records[i:i + batch_size]
-            statement = self._create_single_insert(table_name, fields, batch)
-            statements.append(statement)
+        total_records = len(records)
+        
+        # Process each batch with proper slicing
+        for i in range(0, total_records, batch_size):
+            end_idx = min(i + batch_size, total_records)  # Ensure we don't go past the end
+            batch = records[i:end_idx]  # Get the correct slice of records
+            if batch:  # Only create statement if we have records
+                statement = self._create_single_insert(table_name, fields, batch)
+                statements.append(statement)
+        
         return statements
 
     def _create_single_insert(self, table_name: str, fields: list, records: list) -> str:
@@ -96,9 +97,15 @@ class SQLFormatter:
                     field.get('decimal_count', 0)
                 )
                 record_values.append(formatted_value)
-            values_list.append(f"({','.join(record_values)})")
+            values_list.append(f"    ({','.join(record_values)})")
             
-        return f"INSERT INTO {table_name} ({','.join(field_names)}) VALUES {','.join(values_list)}"
+        # Format with line breaks and indentation
+        sql = f"INSERT INTO {table_name} \n"
+        sql += f"    ({','.join(field_names)}) \n"
+        sql += "VALUES \n"
+        sql += ",\n".join(values_list)
+        
+        return sql
 
  
     def _validate_table_name(self, table_name: str) -> bool:

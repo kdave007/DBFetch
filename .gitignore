@@ -10,3 +10,5 @@ secure/**/*
 
 /build
 /dist/**/* 
+
+config.ini
