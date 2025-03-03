@@ -20,7 +20,7 @@ def test_dbf_to_sql_execution():
     }
 
     # 2. DBF file configuration
-    file_name = 'CANCFDI'  # Change this to your DBF file name
+    file_name = 'VALES'  # Change this to your DBF file name
     test_file = f"../mockDBF/{file_name}.dbf"
 
     # If True, execute the SQL statements in the PostgreSQL database
