@@ -98,6 +98,83 @@ class DBFController:
             print(f"Error getting record count: {e}")
             return 0
 
+    def get_filtered_records(self, conditions: List[Dict], limit: Optional[int] = None) -> Optional[List[Dict]]:
+        """
+        Get records that match specified field conditions
+        
+        Args:
+            conditions: List of condition dictionaries. Each condition should have:
+                - field: Field name to check
+                - value: Value to match
+                - operator: Optional operator ('=', '>', '<', '>=', '<=', 'between')
+                - value2: Optional second value for 'between' operator
+            limit: Optional maximum number of records to return
+            
+        Examples:
+            # Get records where STATUS = 'A'
+            controller.get_filtered_records([{'field': 'STATUS', 'value': 'A'}])
+            
+            # Get records where AMOUNT > 1000
+            controller.get_filtered_records([{'field': 'AMOUNT', 'value': 1000, 'operator': '>'}])
+            
+            # Get records where DATE between '2024-01-01' and '2024-12-31'
+            controller.get_filtered_records([{
+                'field': 'DATE',
+                'value': '2024-01-01',
+                'value2': '2024-12-31',
+                'operator': 'between'
+            }])
+            
+            # Multiple conditions (all must match)
+            controller.get_filtered_records([
+                {'field': 'STATUS', 'value': 'A'},
+                {'field': 'AMOUNT', 'value': 1000, 'operator': '>'}
+            ])
+            
+        Returns:
+            List[Dict]: List of filtered records or None if error occurs
+        """
+        if not self.dbf_reader:
+            print("Error: No DBF file has been set. Call set_dbf_file first.")
+            return None
+        
+        try:
+            # Validate conditions format
+            for condition in conditions:
+                if 'field' not in condition or 'value' not in condition:
+                    raise ValueError("Each condition must have 'field' and 'value' keys")
+                
+                operator = condition.get('operator', '=')
+                if operator not in ['=', '>', '<', '>=', '<=', 'between']:
+                    raise ValueError(f"Invalid operator: {operator}")
+                
+                if operator == 'between' and 'value2' not in condition:
+                    raise ValueError("'between' operator requires 'value2' key")
+            
+            # Get filtered records
+            return self.dbf_reader.get_filtered_records(conditions, limit)
+            
+        except Exception as e:
+            print(f"Error getting filtered records: {e}")
+            return None
+
+    def get_field_info(self) -> List[Dict[str, str]]:
+        """
+        Get information about fields in the DBF file
+        
+        Returns:
+            List[Dict]: List of field information dictionaries or empty list if error occurs
+        """
+        if not self.dbf_reader:
+            print("Error: No DBF file has been set. Call set_dbf_file first.")
+            return []
+            
+        try:
+            return self.dbf_reader.get_field_info()
+        except Exception as e:
+            print(f"Error getting field info: {e}")
+            return []
+
     def export_to_json(self, records: List[Dict]) -> str:
         """Convert records to JSON string"""
 

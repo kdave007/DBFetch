@@ -1,6 +1,7 @@
 from dbfread import DBF
 from typing import Dict, Optional, List, Tuple
 import os
+from datetime import datetime, date
 
 class DBFReader:
     def __init__(self, file_path: str, max_records: int = 1000):
@@ -229,3 +230,121 @@ class DBFReader:
         except Exception as e:
             print(f"Error reading DBF file: {e}")
             return [], []
+
+    def get_filtered_records(self, conditions: List[Dict], limit: Optional[int] = None) -> Optional[List[Dict]]:
+        """
+        Get records that match specified field conditions.
+        
+        Args:
+            conditions: List of condition dictionaries. Each condition should have:
+                - field: Field name to check
+                - value: Value to match
+                - operator: Optional operator ('=', '>', '<', '>=', '<=', 'between')
+                - value2: Optional second value for 'between' operator
+            limit: Optional maximum number of records to return
+            
+        Examples:
+            # Get records where STATUS = 'A'
+            reader.get_filtered_records([{'field': 'STATUS', 'value': 'A'}])
+            
+            # Get records where AMOUNT > 1000
+            reader.get_filtered_records([{'field': 'AMOUNT', 'value': 1000, 'operator': '>'}])
+            
+            # Get records where DATE between '2024-01-01' and '2024-12-31'
+            reader.get_filtered_records([{
+                'field': 'DATE',
+                'value': '2024-01-01',
+                'value2': '2024-12-31',
+                'operator': 'between'
+            }])
+            
+            # Multiple conditions (all must match)
+            reader.get_filtered_records([
+                {'field': 'STATUS', 'value': 'A'},
+                {'field': 'AMOUNT', 'value': 1000, 'operator': '>'}
+            ])
+        
+        Returns:
+            List of matching records, or None if error occurs
+        """
+        try:
+            with DBF(self.file_path, encoding='latin1') as dbf:
+                # Validate field names first
+                field_names = [field.name for field in dbf.fields]
+                for condition in conditions:
+                    if condition['field'] not in field_names:
+                        raise ValueError(f"Field '{condition['field']}' not found in DBF file")
+                
+                # Filter records
+                filtered_records = []
+                for record in dbf:
+                    if self._matches_conditions(record, conditions):
+                        filtered_records.append(record)
+                        if limit and len(filtered_records) >= limit:
+                            break
+                
+                return filtered_records
+
+        except Exception as e:
+            print(f"Error filtering records: {e}")
+            return None
+
+    def _matches_conditions(self, record: Dict, conditions: List[Dict]) -> bool:
+        """
+        Check if a record matches all specified conditions.
+        
+        Args:
+            record: Single record to check
+            conditions: List of condition dictionaries
+            
+        Returns:
+            True if record matches all conditions, False otherwise
+        """
+        for condition in conditions:
+            field = condition['field']
+            value = condition['value']
+            operator = condition.get('operator', '=')
+            
+            record_value = record[field]
+            
+            # Skip comparison if record value is None
+            if record_value is None:
+                return False
+
+            # Convert dates if needed
+            if isinstance(record_value, (datetime, date)):
+                try:
+                    # Convert string to date object
+                    if isinstance(value, str):
+                        parsed_date = datetime.strptime(value, '%Y-%m-%d')
+                        value = parsed_date.date() if isinstance(record_value, date) else parsed_date
+                        
+                    if operator == 'between' and isinstance(condition['value2'], str):
+                        parsed_date2 = datetime.strptime(condition['value2'], '%Y-%m-%d')
+                        condition['value2'] = parsed_date2.date() if isinstance(record_value, date) else parsed_date2
+                except ValueError as e:
+                    print(f"Error parsing date value: {e}")
+                    return False
+            
+            # Handle different operators
+            if operator == '=':
+                if record_value != value:
+                    return False
+            elif operator == '>':
+                if not (record_value > value):
+                    return False
+            elif operator == '<':
+                if not (record_value < value):
+                    return False
+            elif operator == '>=':
+                if not (record_value >= value):
+                    return False
+            elif operator == '<=':
+                if not (record_value <= value):
+                    return False
+            elif operator == 'between':
+                value2 = condition['value2']
+                if not (value <= record_value <= value2):
+                    return False
+        
+        return True
