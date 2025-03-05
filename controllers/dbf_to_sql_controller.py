@@ -1,15 +1,10 @@
 from typing import Dict, List, Optional
 import os
+import logging
 from controllers.dbf_controller import DBFController
 from controllers.format_controller import FormatController
 from models.db_connection import DBConnection
-from config import (
-    get_config_value,
-    CONFIG,
-    SECURE_CONFIG,
-    is_execute_query_enabled, 
-    get_preview_mode
-)
+from config import DB_CONFIG, get_preview_mode, is_execute_query_enabled, FEATURE_FLAGS
 
 class DbftoSqlController():
     def __init__(self) -> None:
@@ -17,64 +12,107 @@ class DbftoSqlController():
         self.initialized = False
         self.db_connection = None
 
-    def set_config(self, file_path: str, preview_path: str, conditions: List[Dict[str, str]], max_records: Optional[int] = None, batch_size: int = 1000):
+    def set_config(self, file_path: str = None, preview_path: str = None, conditions: List[Dict[str, str]] = None, max_records: Optional[int] = None, batch_size: int = 1000):
+        logging.info(f"Configuring DBF to SQL controller with:")
+        logging.info(f"- File path: {file_path}")
+        logging.info(f"- Preview path: {preview_path}")
+        logging.info(f"- Filter conditions: {conditions}")
+        logging.info(f"- Max records: {max_records}")
+        
         self.file_path = file_path
-        self.conditions = conditions
+        self.conditions = conditions if conditions else []
         self.max_records = max_records
         self.batch_size = batch_size
         self.preview_path = preview_path
-    
-        # Get database config from secure config
-        db_config = {
-            'host': SECURE_CONFIG.get('database', 'host'),
-            'port': SECURE_CONFIG.getint('database', 'port'),
-            'database': SECURE_CONFIG.get('database', 'database'),
-            'user': SECURE_CONFIG.get('database', 'user'),
-            'password': SECURE_CONFIG.get('database', 'password')
-        }
+
         
-        print("Using database config:", {k: '***' if k == 'password' else v for k, v in db_config.items()})
-        self.db_connection = DBConnection(db_config)
+       
+        
+
+        print(DB_CONFIG)
+        print(FEATURE_FLAGS)
+
         self.initialized = True
         return self
 
+    def _get_db_connection(self) -> Optional[DBConnection]:
+        """
+        Get or create a database connection.
+        """
+        try:
+            if self.db_connection is None:
+                logging.info("Creating new database connection...")
+                self.db_connection = DBConnection(DB_CONFIG, 1, 1)
+            else:
+                logging.info("Ensuring existing connection pool is open...")
+                self.db_connection.ensure_pool_is_open()
+            return self.db_connection
+        except Exception as e:
+            logging.error(f"Failed to get database connection: {e}", exc_info=True)
+            return None
+
+    def cleanup(self):
+        """
+        Clean up resources when done with the controller.
+        Call this method when you're completely done with database operations.
+        """
+        if self.db_connection and self.db_connection._pool:
+            logging.info("Closing database connection pool...")
+            self.db_connection.close_pool()
+            self.db_connection = None
+            logging.info("Database connection pool closed successfully")
+
     def process_start(self):
         if not self.initialized:
+            logging.error("Controller not initialized - must call set_config first")
             raise ValueError("Must set_config values first...")
 
-        if os.path.exists(self.file_path):
-            result = self.dbf_controller.set_dbf_file(self.file_path, self.max_records)
+        try:
+            logging.info("Starting DBF processing...")
+            if os.path.exists(self.file_path):
+                result = self.dbf_controller.set_dbf_file(self.file_path, self.max_records)
 
-            if result:
-                # Get some records and fields
-                records = self.dbf_controller.get_filtered_records(self.conditions,30) 
-                fields = self.dbf_controller.dbf_reader.get_field_info()
+                if result:
+                    # Get some records and fields
+                    records = self.dbf_controller.get_filtered_records(self.conditions,30) 
+                    fields = self.dbf_controller.dbf_reader.get_field_info()
 
-                table_name = DBFController.get_table_name(self.file_path)
+                    table_name = DBFController.get_table_name(self.file_path)
+                
+                    format_controller = FormatController()
+
+                    sql_statements = format_controller.format_to_sql(
+                        table_name=table_name,
+                        records=records,
+                        fields=fields,
+                        batch_size=self.batch_size
+                    )
+
+                    # Save SQL file
+                    if get_preview_mode():
+                        logging.info(f"Saving SQL preview to: {self.preview_path}")
+                        format_controller.save_sql_file(sql_statements, self.preview_path, table_name)
+                        logging.info("SQL preview saved successfully")
+
+                    # Execute SQL if enabled in config and connection is available
+                    
+                    if is_execute_query_enabled() :
+                        try:
+
+                            logging.info("Executing SQL statements...")
+                            db = self._get_db_connection()
+                            for i, statement in enumerate(sql_statements, 1):
+                                db.execute_query(statement)
+                                if i % 100 == 0:  # Log progress every 100 statements
+                                    logging.info(f"Executed {i}/{len(sql_statements)} SQL statements")
+                            logging.info(f"Successfully executed all SQL statements for table {table_name}")
+                        except Exception as e:
+                            logging.error(f"Error executing SQL: {e}", exc_info=True)
+                    else:
+                        logging.info("SQL execution skipped - not enabled in config")
+
+            logging.info("DBF processing completed successfully")
             
-                format_controller = FormatController()
-
-                sql_statements = format_controller.format_to_sql(
-                    table_name=table_name,
-                    records=records,
-                    fields=fields,
-                    batch_size=self.batch_size
-                )
-
-                # Save SQL file
-                if get_preview_mode():
-                    format_controller.save_sql_file(sql_statements, self.preview_path, table_name)
-
-                # Execute SQL if enabled in config and connection is available
-                if is_execute_query_enabled() and self.db_connection:
-                    try:
-                        with self.db_connection.get_cursor() as cursor:
-                            for statement in sql_statements:
-                                cursor.execute(statement)
-                            print(f"Successfully executed SQL statements for table {table_name}")
-                    except Exception as e:
-                        print(f"Error executing SQL: {e}")
-                else:
-                    print("SQL execution is disabled in config or no database connection available")
-
-        return None
+        except Exception as e:
+            logging.error(f"Error during DBF processing: {e}", exc_info=True)
+            raise
