@@ -175,11 +175,30 @@ class DBFController:
             print(f"Error getting field info: {e}")
             return []
 
-    def export_to_json(self, records: List[Dict]) -> str:
-        """Convert records to JSON string"""
+    @staticmethod
+    def get_table_name(file_path: str) -> str:
+        """
+        Get table name from file path or config settings.
+        If custom table name is enabled in config, use that.
+        Otherwise, use sanitized file name.
 
-    def export_to_txt(self, records: List[Dict]) -> str:
-        """Convert records to formatted text"""
+        Args:
+            file_path: Path to DBF file
 
-    def export_to_sql(self, records: List[Dict], table_name: str = None) -> str:
-        """Convert records to SQL INSERT statements"""
+        Returns:
+            Table name to use for SQL
+        """
+        from config import is_custom_table_name_enabled, get_target_table_name
+
+        if is_custom_table_name_enabled():
+            return get_target_table_name()
+        
+        # Get file name without extension and path
+        file_name = os.path.splitext(os.path.basename(file_path))[0]
+        
+        # Sanitize for SQL:
+        # - Convert to lowercase
+        # - Replace spaces/special chars with underscore
+        # - Remove any other invalid characters
+        table_name = ''.join(c.lower() if c.isalnum() else '_' for c in file_name)
+        return table_name.strip('_')  # Remove leading/trailing underscores

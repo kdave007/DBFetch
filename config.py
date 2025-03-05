@@ -2,7 +2,8 @@ import os
 import configparser
 from pathlib import Path
 import sys
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, List
+import json
 
 DEFAULT_CONFIG = {
    'paths': {
@@ -24,6 +25,12 @@ DEFAULT_CONFIG = {
         'user': 'postgres',
         'password': 'default_password'
     }   
+}
+
+DEFAULT_FILTER_CONFIG = {
+    "filters": [],
+    "filter_enabled": False,
+    "max_records": 1000
 }
 
 # Configuration validation rules
@@ -189,3 +196,80 @@ def get_target_table_name() -> str:
     """Get target table name"""
     return FEATURE_FLAGS['target_table_name']
 
+def load_filter_config(filter_config_path: Optional[str] = None) -> Dict:
+    """
+    Load filter configuration from JSON file.
+    
+    Args:
+        filter_config_path: Path to filter config JSON file. If None, uses default path.
+        
+    Returns:
+        Dict containing filter configuration
+    """
+    if filter_config_path is None:
+        filter_config_path = os.path.join(BASE_DIR, 'filter_config.json')
+    
+    try:
+        if os.path.exists(filter_config_path):
+            with open(filter_config_path, 'r') as f:
+                config = json.load(f)
+                # Validate required fields
+                if not isinstance(config.get('filters', []), list):
+                    raise ValueError("'filters' must be a list")
+                return config
+    except Exception as e:
+        print(f"Warning: Error reading filter config file {filter_config_path}: {e}")
+        print("Using default filter configuration")
+    
+    return DEFAULT_FILTER_CONFIG
+
+def validate_filter_conditions(conditions: List[Dict]) -> List[Dict]:
+    """
+    Validate filter conditions from config.
+    
+    Args:
+        conditions: List of filter condition dictionaries
+        
+    Returns:
+        List of validated filter conditions
+    """
+    valid_conditions = []
+    valid_operators = ['=', '>', '<', '>=', '<=', 'between']
+    
+    for condition in conditions:
+        try:
+            # Check required fields
+            if 'field' not in condition or 'value' not in condition:
+                print(f"Warning: Skipping invalid condition (missing required fields): {condition}")
+                continue
+            
+            # Validate operator
+            operator = condition.get('operator', '=')
+            if operator not in valid_operators:
+                print(f"Warning: Invalid operator '{operator}' in condition: {condition}")
+                continue
+                
+            # Check for value2 if operator is 'between'
+            if operator == 'between' and 'value2' not in condition:
+                print(f"Warning: Missing 'value2' for 'between' operator in condition: {condition}")
+                continue
+                
+            valid_conditions.append(condition)
+        except Exception as e:
+            print(f"Warning: Error validating condition: {e}")
+            continue
+    
+    return valid_conditions
+
+# Load filter configuration
+FILTER_CONFIG = load_filter_config()
+
+def get_filter_conditions() -> List[Dict]:
+    """Get validated filter conditions from config"""
+    if not FILTER_CONFIG.get('filter_enabled', False):
+        return []
+    return validate_filter_conditions(FILTER_CONFIG.get('filters', []))
+
+def is_filtering_enabled() -> bool:
+    """Check if filtering is enabled in config"""
+    return FILTER_CONFIG.get('filter_enabled', False)

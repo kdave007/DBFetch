@@ -1,0 +1,11 @@
+{
+  "filter_enabled": true,
+  "filters": [
+    {
+      "field": "F_EMISION",
+      "value": "2023-09-18",
+      "value2": "2023-09-20",
+      "operator": "between"
+    }
+  ]
+}
