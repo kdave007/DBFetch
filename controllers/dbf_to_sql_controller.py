@@ -25,12 +25,8 @@ class DbftoSqlController():
         self.batch_size = batch_size
         self.preview_path = preview_path
 
-        
-       
-        
-
-        print(DB_CONFIG)
-        print(FEATURE_FLAGS)
+        #print(DB_CONFIG)
+        #print(FEATURE_FLAGS)
 
         self.initialized = True
         return self
@@ -74,7 +70,7 @@ class DbftoSqlController():
 
                 if result:
                     # Get some records and fields
-                    records = self.dbf_controller.get_filtered_records(self.conditions,30) 
+                    records = self.dbf_controller.get_filtered_records(self.conditions,self.max_records) 
                     fields = self.dbf_controller.dbf_reader.get_field_info()
 
                     table_name = DBFController.get_table_name(self.file_path)
@@ -91,7 +87,12 @@ class DbftoSqlController():
                     # Save SQL file
                     if get_preview_mode():
                         logging.info(f"Saving SQL preview to: {self.preview_path}")
-                        format_controller.save_sql_file(sql_statements, self.preview_path, table_name)
+
+                        if FEATURE_FLAGS['preview_ext'] == 'sql':
+                            format_controller.save_to_sql(sql_statements, self.preview_path, table_name)
+                        else :
+                            format_controller.save_to_txt(sql_statements, self.preview_path, table_name)
+
                         logging.info("SQL preview saved successfully")
 
                     # Execute SQL if enabled in config and connection is available
