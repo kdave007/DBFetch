@@ -134,6 +134,3 @@ Logs are stored in the `logs` directory with the filename format `dbforge_YYYYMM
 4. Push to the branch
 5. Create a new Pull Request
 
-## License
-
-[Your chosen license]
